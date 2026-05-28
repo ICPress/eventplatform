@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core dependencies -->
+    <PackageReference Include="Apache.Ignite" Version="2.17.0" />
+    <PackageReference Include="FirebaseAdmin" Version="3.3.0" />
+
+    <!-- Config (aligned with .NET 10) -->
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+
+    <!-- Database (aligned with your other project) -->
+    <PackageReference Include="MySql.Data" Version="9.1.0" />
+
+    <!-- Optional shared libs from other project (only keep if used in code) -->
+    <PackageReference Include="LanguageDetection.NETStandard" Version="1.3.1" />
+    <PackageReference Include="Slugify.Core" Version="4.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- All environment configs -->
+    <Content Include="appsettings*.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+
+    <!-- Certificates -->
+<!--     <Content Include="ca.pem" CopyToOutputDirectory="Always" />
+    <Content Include="client-cert.pem" CopyToOutputDirectory="Always" />
+    <Content Include="client-key.pem" CopyToOutputDirectory="Always" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Firebase credentials -->
+    <None Update="storypop-eb86b-firebase-adminsdk-alr1h-734160e412.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
