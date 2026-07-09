@@ -362,10 +362,10 @@ public static class EventProcessor
         using var httpClient = new HttpClient();
         try
         {
+            var toDelete = eventRow.additional_data;
             using var client = Ignition.StartClient(ConfigUtil.GetIgniteConfiguration(settings));
             var generalCache = ArticleUtil.GetArticleCacheWithTtl(client);
-            var toDelete = eventRow.additional_data;
-
+            await generalCache.RemoveAsync(toDelete);
             var mySqlCommandStoryLogDelete = new MySql.Data.MySqlClient.MySqlCommand();
             mySqlCommandStoryLogDelete.CommandText = "DELETE FROM user_story_log WHERE slug_title = @slug_title";
             mySqlCommandStoryLogDelete.Connection = connection;
@@ -378,8 +378,6 @@ public static class EventProcessor
                 Console.WriteLine("Error occured when deleting post '{0}' in GORSE for user {1}, statusCode: {2}, response:" + deleteRespone.Content.ReadAsStringAsync().Result, toDelete, eventRow.trigger_source_username, deleteRespone.StatusCode);
                 return;
             }
-
-           await generalCache.RemoveAsync(toDelete);
 
             var mySqlCommandStoryDelete = new MySql.Data.MySqlClient.MySqlCommand();
             mySqlCommandStoryDelete.CommandText = "DELETE FROM user_stories WHERE slug_title = @slug_title";
