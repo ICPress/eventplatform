@@ -10,6 +10,7 @@ using Apache.Ignite.Core.Binary;
 using Microsoft.Extensions.Configuration;
 using Apache.Ignite.Core.Client;
 using Apache.Ignite.Core.Events;
+using System.IO;
 
 var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"); // DOTNET_ENVIRONMENT
 IConfiguration configuration = new ConfigurationBuilder()
@@ -27,7 +28,7 @@ if (settings == null)
 // Configure the HTTP request pipeline.
 Console.WriteLine("Running environment:" + environmentName + ", gorse:" + settings.GorseAPIEndpoint);
 
-if (settings != null && (new DirectoryInfo(settings.FirebaseSDKCredentialsJson)).Exists)
+if (settings != null && File.Exists(settings.FirebaseSDKCredentialsJson))
 {
     try
     {
