@@ -357,39 +357,65 @@ public static class EventProcessor
         }
     }
 
-    public static async Task HandleRemoveArticle(MySqlConnection connection, EventQueueRow eventRow, ServerSettings settings)
+    /// <summary>
+    /// Removes a single article: story log, Gorse item, Ignite cache entry, the user_stories
+    /// row, and records the slug in deleted_stories (so GetArticle can 410 it going forward).
+    ///
+    /// The Ignite client is passed in rather than created here — callers that need to remove
+    /// many articles in a loop (e.g. TerminateAccount) should open one client and reuse it.
+    ///
+    /// sendEmail controls whether the per-article "story removed" notice (mail_queue type 7)
+    /// is queued. Pass false for bulk/administrative removals (e.g. account termination) where
+    /// a separate, more appropriate notice is already sent by the caller.
+    ///
+    /// NOTE for callers: this used to take the full EventQueueRow. Only eventRow.additional_data
+    /// (the slug) and eventRow.trigger_source_username were ever used, so callers should now
+    /// pass those two fields directly, e.g.:
+    ///   EventProcessor.HandleRemoveArticle(connection, client, eventRow.additional_data, eventRow.trigger_source_username, settings)
+    /// </summary>
+    public static async Task HandleRemoveArticle(MySqlConnection connection, IIgniteClient client, string slugTitle, string triggerUsername, ServerSettings settings, bool sendEmail = true)
     {
         using var httpClient = new HttpClient();
         try
         {
-            var toDelete = eventRow.additional_data;
-            using var client = Ignition.StartClient(ConfigUtil.GetIgniteConfiguration(settings));
-            var generalCache = ArticleUtil.GetArticleCacheWithTtl(client);
-            await generalCache.RemoveAsync(toDelete);
             var mySqlCommandStoryLogDelete = new MySql.Data.MySqlClient.MySqlCommand();
             mySqlCommandStoryLogDelete.CommandText = "DELETE FROM user_story_log WHERE slug_title = @slug_title";
             mySqlCommandStoryLogDelete.Connection = connection;
-            mySqlCommandStoryLogDelete.Parameters.AddWithValue("@slug_title", toDelete);
+            mySqlCommandStoryLogDelete.Parameters.AddWithValue("@slug_title", slugTitle);
             await mySqlCommandStoryLogDelete.ExecuteNonQueryAsync();
 
-            var deleteRespone = await httpClient.DeleteAsync(settings.GorseAPIEndpoint + "item/" + toDelete);
+            var deleteRespone = await httpClient.DeleteAsync(settings.GorseAPIEndpoint + "item/" + slugTitle);
             if (!deleteRespone.IsSuccessStatusCode)
             {
-                Console.WriteLine("Error occured when deleting post '{0}' in GORSE for user {1}, statusCode: {2}, response:" + deleteRespone.Content.ReadAsStringAsync().Result, toDelete, eventRow.trigger_source_username, deleteRespone.StatusCode);
+                Console.WriteLine("Error occured when deleting post '{0}' in GORSE for user {1}, statusCode: {2}, response:" + deleteRespone.Content.ReadAsStringAsync().Result, slugTitle, triggerUsername, deleteRespone.StatusCode);
                 return;
+            }
+
+            try
+            {
+                var generalCache = ArticleUtil.GetArticleCacheWithTtl(client);
+                await generalCache.RemoveAsync(slugTitle);
+            } catch (Exception ex)
+            {
+                Console.WriteLine("Skipping delete in Ignite: "+ ex.Message);
             }
 
             var mySqlCommandStoryDelete = new MySql.Data.MySqlClient.MySqlCommand();
             mySqlCommandStoryDelete.CommandText = "DELETE FROM user_stories WHERE slug_title = @slug_title";
             mySqlCommandStoryDelete.Connection = connection;
-            mySqlCommandStoryDelete.Parameters.AddWithValue("@slug_title", toDelete);
+            mySqlCommandStoryDelete.Parameters.AddWithValue("@slug_title", slugTitle);
             await mySqlCommandStoryDelete.ExecuteNonQueryAsync();
 
-            var mySqlEmailTerminationNotice = new MySql.Data.MySqlClient.MySqlCommand();
-            mySqlEmailTerminationNotice.CommandText = "insert into mail_queue (email,type,additional_data) SELECT email, 7 as type,username as additional_data FROM users where username = @username";
-            mySqlEmailTerminationNotice.Parameters.AddWithValue("@username", eventRow.trigger_source_username);
-            mySqlEmailTerminationNotice.Connection = connection;
-            await mySqlEmailTerminationNotice.ExecuteNonQueryAsync();
+            await DeletedStoriesUtil.MarkSlugAsDeletedAsync(connection, slugTitle);
+
+            if (sendEmail)
+            {
+                var mySqlEmailTerminationNotice = new MySql.Data.MySqlClient.MySqlCommand();
+                mySqlEmailTerminationNotice.CommandText = "insert into mail_queue (email,type,additional_data) SELECT email, 7 as type,username as additional_data FROM users where username = @username";
+                mySqlEmailTerminationNotice.Parameters.AddWithValue("@username", triggerUsername);
+                mySqlEmailTerminationNotice.Connection = connection;
+                await mySqlEmailTerminationNotice.ExecuteNonQueryAsync();
+            }
         }
         catch (Exception ex)
         {

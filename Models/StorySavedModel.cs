@@ -10,13 +10,13 @@ public class StorySavedModel : IAuthorEntity
     public string? StoryTitle { get; set; }
 
     [JsonPropertyName("emptyTitle")]
-    public string? EmptyTitle { get; set; }
+    public string EmptyTitle { get; set; } = "";
 
     [JsonPropertyName("contentText")]
-    public string? ContentText { get; set; }
+    public string ContentText { get; set; } ="";
 
     [JsonPropertyName("location")]
-    public string? Location { get; set; }
+    public string Location { get; set; } ="";
 
     [JsonPropertyName("tags")]
     public List<string>? Tags { get; set; }
@@ -39,8 +39,10 @@ public class StorySavedModel : IAuthorEntity
     [JsonPropertyName("privateSources")]
     public List<ArticlePrivateSource> PrivateSources { get; set; } = new List<ArticlePrivateSource>();
 
-    [JsonPropertyName("publicSources")]
-    public List<string> PublicSources { get; set; } = new List<string>();
+     [JsonPropertyName("publicSources")]
+    public List<string> PublicSources { get; set; } = new List<string>(); 
+    [JsonPropertyName("references")]
+    public List<PublicSourceModel> References { get; set; } = new List<PublicSourceModel>();
 
     [JsonPropertyName("storyMap")]
     public StoryMap? StoryMap { get; set; } = null;

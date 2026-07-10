@@ -39,9 +39,10 @@ if (settings != null && (new DirectoryInfo(settings.FirebaseSDKCredentialsJson))
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Could not initialize firebase:" + ex.Message,ex);
+        Console.WriteLine("Could not initialize firebase:" + ex.Message, ex);
     }
-}else Console.WriteLine("Skipping Initialization of firebase, SDK credentials file is missing:" + settings?.FirebaseSDKCredentialsJson);
+}
+else Console.WriteLine("Skipping Initialization of firebase, SDK credentials file is missing:" + settings?.FirebaseSDKCredentialsJson);
 
 while (true)
 {
@@ -129,7 +130,13 @@ while (true)
                     case EventTriggerType.LIKE_COMMENT_DELETE:
                         break;
                     case EventTriggerType.REMOVE_ARTICLE:
-                        await EventProcessor.HandleRemoveArticle(connection, eventRow, settings);
+                        {
+                            using var igniteClient =  Ignition.StartClient(new IgniteClientConfiguration
+                            {
+                                Endpoints = new[] { settings.IgniteEndpoint }
+                            });
+                            await EventProcessor.HandleRemoveArticle(connection, igniteClient, eventRow.additional_data, eventRow.trigger_source_username, settings);
+                        }
                         break;
                     case EventTriggerType.WRITE_MESSAGE:
                         targetUsername = eventRow.additional_data.Substring(0, eventRow.additional_data.IndexOf(":"));
@@ -151,7 +158,7 @@ while (true)
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error while processing events:"+ex.Message,ex);
+            Console.WriteLine("Error while processing events:" + ex.Message, ex);
         }
         finally
         {
